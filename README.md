@@ -37,19 +37,18 @@ Generates images using Google's Gemini vision-language models via the `:generate
 
 ### Models
 
-- `gemini-2.0-flash-exp` (Fast, experimental)
-- `gemini-exp-1206` (High quality, experimental)
-- `gemini-1.5-flash` (Fast, standard)
-- `gemini-1.5-pro` (Highest quality, standard)
+- `gemini-3-pro-image-preview` (Nano Banana Pro) — Highest quality, best text rendering.
+- `gemini-3.1-flash-image-preview` (Nano Banana 2 / Flash) — Faster, cheaper, supports reasoning/thinking & 512px.
 
 ### Parameters
 
 - **prompt**: Text prompt for generation or editing.
-- **model**: Gemini model selection.
-- **aspect_ratio**: Control the output shape (1:1, 3:4, 4:3, 9:16, 16:9).
+- **model**: Gemini model selection (Pro or Flash).
+- **aspect_ratio**: Control the output shape (Up to 14 ratios on Flash).
 - **image_size**: Resolution control (512px, 1K, 2K, 4K - dependent on model).
-- **input_image** (Optional): Reference image for image-to-image/editing tasks.
+- **reference_images** (Optional): Support for up to 14 reference images for image-to-image/editing tasks.
 - **batch_count**: Number of images to generate (supports concurrency).
+- **thinking_level**: Reasoning depth for Flash model.
 
 ## Nano Banana Chat Edit
 
