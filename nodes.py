@@ -2,7 +2,7 @@
 ComfyUI node class definitions for Google API and Nano Banana image generation.
 
 Nodes:
-  - GoogleImagenAPIKeyNode: Resolves Google API key via 3-tier priority.
+  - GoogleAPIKeyNode: Resolves Google API key via 3-tier priority.
   - NanoBananaGenerate: Text-to-image via Gemini SDK.
   - NanoBananaChat: Multi-turn conversational image editing.
 """
@@ -217,7 +217,7 @@ def build_config(model, response_modality, aspect_ratio, image_size,
 
     return config, tools
 
-class GoogleImagenAPIKeyNode:
+class GoogleAPIKeyNode:
     """Provides a Google API key for Nano Banana nodes."""
 
     @classmethod

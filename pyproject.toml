@@ -1,7 +1,7 @@
 [project]
-name = "comfyui-google-imagen"
+name = "comfyui-nano-banana"
 version = "1.0.0"
-description = "ComfyUI custom nodes for Google Imagen 4 and Nano Banana image generation"
+description = "ComfyUI custom nodes for Nano Banana (Gemini) image generation"
 license = "MIT"
 requires-python = ">=3.10"
 dependencies = [

@@ -1,21 +1,21 @@
 """
-ComfyUI-Google-Imagen: Custom node pack for Google Imagen and Nano Banana image generation.
+ComfyUI-Nano-Banana: Custom node pack for Nano Banana image generation.
 """
 
 from .nodes import (
-    GoogleImagenAPIKeyNode, 
+    GoogleAPIKeyNode, 
     NanoBananaGenerate, 
     NanoBananaChat
 )
 
 NODE_CLASS_MAPPINGS = {
-    "GoogleImagenAPIKey": GoogleImagenAPIKeyNode,
+    "GoogleAPIKey": GoogleAPIKeyNode,
     "NanoBananaGenerate": NanoBananaGenerate,
     "NanoBananaChat": NanoBananaChat,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "GoogleImagenAPIKey": "Google API Key",
+    "GoogleAPIKey": "Google API Key",
     "NanoBananaGenerate": "🍌 Nano Banana Generate",
     "NanoBananaChat": "🍌 Nano Banana Chat Edit",
 }
