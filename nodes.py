@@ -11,7 +11,7 @@ from .client_manager import get_client, resolve_api_key
 from io import BytesIO
 from PIL import Image as PILImage
 from .type_converters import (
-    comfy_tensor_to_pil, 
+    comfy_tensor_to_pil,
     pil_to_comfy_tensor
 )
 from .error_handlers import handle_api_error
@@ -20,6 +20,7 @@ import torch
 import random
 import time
 import concurrent.futures
+
 
 class NanoBananaLogger:
     PREFIX = "🍌 [NanoBanana]"
@@ -38,18 +39,18 @@ class NanoBananaLogger:
 
     @staticmethod
     def api_call(model, image_size, aspect_ratio):
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"{NanoBananaLogger.PREFIX} API Call")
         print(f"  Model:        {model}")
         print(f"  Size:         {image_size}")
         print(f"  Aspect Ratio: {aspect_ratio}")
         print(f"  Time:         {time.strftime('%H:%M:%S')}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
     @staticmethod
     def api_result(success, candidates_returned, images_extracted, tokens_used=None, duration_s=None):
         status = "✅ SUCCESS" if success else "❌ FAILED"
-        print(f"\n{'-'*60}")
+        print(f"\n{'-' * 60}")
         print(f"{NanoBananaLogger.PREFIX} Result: {status}")
         print(f"  Candidates:   {candidates_returned}")
         print(f"  Images:       {images_extracted}")
@@ -57,11 +58,11 @@ class NanoBananaLogger:
             print(f"  Tokens used:  {tokens_used}")
         if duration_s:
             print(f"  Duration:     {duration_s:.1f}s")
-        print(f"{'-'*60}\n")
+        print(f"{'-' * 60}\n")
 
     @staticmethod
     def safety_block(finish_reason, safety_ratings=None):
-        print(f"\n{'!'*60}")
+        print(f"\n{'!' * 60}")
         print(f"{NanoBananaLogger.PREFIX} ❌ GENERATION BLOCKED")
         print(f"  Reason: {finish_reason}")
         if safety_ratings:
@@ -69,11 +70,12 @@ class NanoBananaLogger:
                 print(f"  - {rating.category}: {rating.probability}")
         print(f"  Tip: Try adjusting safety settings or rephrasing your prompt.")
         print(f"  Note: Even with BLOCK_NONE, an internal image filter may still block.")
-        print(f"{'!'*60}\n")
+        print(f"{'!' * 60}\n")
 
     @staticmethod
     def batch_progress(current, total):
         print(f"{NanoBananaLogger.PREFIX} 🔄 Batch {current}/{total}")
+
 
 MODEL_CONSTRAINTS = {
     "gemini-3-pro-image-preview": {
@@ -106,6 +108,7 @@ MODEL_CONSTRAINTS = {
     },
 }
 
+
 def validate_model_params(model, aspect_ratio, image_size, thinking_level, num_refs):
     """Validate params against model constraints. Returns list of warning strings."""
     warnings = []
@@ -137,13 +140,13 @@ def validate_model_params(model, aspect_ratio, image_size, thinking_level, num_r
 
     return warnings
 
+
 def build_config(model, response_modality, aspect_ratio, image_size,
                  temperature, top_p, top_k, candidate_count, max_output_tokens,
                  stop_sequences, seed, thinking_level, presence_penalty,
                  frequency_penalty, system_instruction, enable_search_grounding,
                  safety_hate_speech, safety_harassment, safety_sexually_explicit,
                  safety_dangerous_content):
-
     constraints = MODEL_CONSTRAINTS[model]
     logger = NanoBananaLogger
 
@@ -161,7 +164,8 @@ def build_config(model, response_modality, aspect_ratio, image_size,
 
     # --- Guard: aspect_ratio ---
     if aspect_ratio not in constraints["aspect_ratios"]:
-        logger.warn(f"aspect_ratio='{aspect_ratio}' not supported by {constraints['display_name']}. Falling back to '1:1'.")
+        logger.warn(
+            f"aspect_ratio='{aspect_ratio}' not supported by {constraints['display_name']}. Falling back to '1:1'.")
         aspect_ratio = "1:1"
 
     # --- Safety settings ---
@@ -172,10 +176,10 @@ def build_config(model, response_modality, aspect_ratio, image_size,
         "HARM_CATEGORY_DANGEROUS_CONTENT": safety_dangerous_content,
     }
     safety_settings = [
-        types.SafetySetting(category=cat, threshold=thresh)
-        for cat, thresh in safety_map.items()
-        if thresh != "OFF"
-    ] or None
+                          types.SafetySetting(category=cat, threshold=thresh)
+                          for cat, thresh in safety_map.items()
+                          if thresh != "OFF"
+                      ] or None
 
     # --- Stop sequences ---
     parsed_stops = (
@@ -217,6 +221,7 @@ def build_config(model, response_modality, aspect_ratio, image_size,
 
     return config, tools
 
+
 class GoogleAPIKeyNode:
     """Provides a Google API key for Nano Banana nodes."""
 
@@ -251,8 +256,10 @@ class GoogleAPIKeyNode:
 def empty_image_tensor():
     return torch.zeros((1, 512, 512, 3), dtype=torch.float32)
 
+
 class NanoBananaGenerate:
     """Text-to-image and image-to-image using Nano Banana (Gemini generateContent)"""
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -264,32 +271,32 @@ class NanoBananaGenerate:
                     "tooltip": "Describe the image you want to generate. Be specific about subject, style, lighting, composition. Supports multiple languages."
                 }),
                 "model": ([
-                    "gemini-3.1-flash-image-preview",
-                    "gemini-3-pro-image-preview",
-                ], {
-                    "default": "gemini-3.1-flash-image-preview",
-                    "tooltip": "Nano Banana Pro = highest quality, best text rendering. Nano Banana 2 (Flash) = faster, cheaper, supports thinking & 512px & extreme aspect ratios."
-                }),
+                              "gemini-3.1-flash-image-preview",
+                              "gemini-3-pro-image-preview",
+                          ], {
+                              "default": "gemini-3.1-flash-image-preview",
+                              "tooltip": "Nano Banana Pro = highest quality, best text rendering. Nano Banana 2 (Flash) = faster, cheaper, supports thinking & 512px & extreme aspect ratios."
+                          }),
                 "aspect_ratio": ([
-                    "1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4",
-                    "9:16", "16:9", "21:9",
-                    "1:4", "4:1", "1:8", "8:1",
-                ], {
-                    "default": "1:1",
-                    "tooltip": "Output image proportions. Pro supports 10 ratios. Flash supports 14 including extreme (1:8, 8:1). Invalid ratios for the selected model will be flagged."
-                }),
+                                     "1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4",
+                                     "9:16", "16:9", "21:9",
+                                     "1:4", "4:1", "1:8", "8:1",
+                                 ], {
+                                     "default": "1:1",
+                                     "tooltip": "Output image proportions. Pro supports 10 ratios. Flash supports 14 including extreme (1:8, 8:1). Invalid ratios for the selected model will be flagged."
+                                 }),
                 "image_size": ([
-                    "512px", "1K", "2K", "4K"
-                ], {
-                    "default": "1K",
-                    "tooltip": "Output resolution. 512px (Flash only), 1K (1024px), 2K (2048px), 4K (4096px). Larger = higher quality but more tokens billed."
-                }),
+                                   "512px", "1K", "2K", "4K"
+                               ], {
+                                   "default": "1K",
+                                   "tooltip": "Output resolution. 512px (Flash only), 1K (1024px), 2K (2048px), 4K (4096px). Larger = higher quality but more tokens billed."
+                               }),
                 "response_modality": ([
-                    "IMAGE", "TEXT_AND_IMAGE"
-                ], {
-                    "default": "IMAGE",
-                    "tooltip": "IMAGE = only image output (saves ~3% on tokens). TEXT_AND_IMAGE = image + text description/caption."
-                }),
+                                          "IMAGE", "TEXT_AND_IMAGE"
+                                      ], {
+                                          "default": "IMAGE",
+                                          "tooltip": "IMAGE = only image output (saves ~3% on tokens). TEXT_AND_IMAGE = image + text description/caption."
+                                      }),
                 "system_instruction": ("STRING", {
                     "default": "",
                     "multiline": True,
@@ -317,11 +324,11 @@ class NanoBananaGenerate:
                     "tooltip": "Max output tokens (text + thinking + image). Image tokens: ~1,120 for 1K, ~1,600 for 2K, ~2,520 for 4K. Too low = image may fail. Recommended minimum: 2048 for 1K, 8192 for 4K."
                 }),
                 "thinking_level": ([
-                    "none", "minimal", "low", "medium", "high"
-                ], {
-                    "default": "minimal",
-                    "tooltip": "Reasoning depth (Flash/NB2 ONLY). Higher = better quality, more tokens. ⚠️ IGNORED for Pro — causes API error if sent."
-                }),
+                                       "none", "minimal", "low", "medium", "high"
+                                   ], {
+                                       "default": "minimal",
+                                       "tooltip": "Reasoning depth (Flash/NB2 ONLY). Higher = better quality, more tokens. ⚠️ IGNORED for Pro — causes API error if sent."
+                                   }),
                 "batch_count": ("INT", {
                     "default": 1, "min": 1, "max": 8, "step": 1, "display": "number",
                     "tooltip": "Number of separate API calls (1–8). Each call produces 1 image. Total images = batch_count × candidate_count. Calls run concurrently where rate limits allow."
@@ -333,7 +340,13 @@ class NanoBananaGenerate:
                     "placeholder": "Leave blank to use GEMINI_API_KEY env var",
                     "tooltip": "Your Google AI Studio API key. Leave blank to use GEMINI_API_KEY environment variable."
                 }),
-                "reference_image_1": ("IMAGE", {"tooltip": "Individual reference image 1. Unaffected by batch cropping."}),
+                "base_url": ("STRING", {
+                    "default": "", "forceInput": True,
+                    "placeholder": "Input your base url, if empty use default",
+                    "tooltip": "Input your base url, if empty use default"
+                }),
+                "reference_image_1": (
+                "IMAGE", {"tooltip": "Individual reference image 1. Unaffected by batch cropping."}),
                 "stop_sequences": ("STRING", {
                     "default": "",
                     "multiline": False,
@@ -345,29 +358,33 @@ class NanoBananaGenerate:
                     "tooltip": "Sampling seed (0 = random). ⚠️ Influences but does NOT guarantee identical images. Same seed + prompt = similar (not identical) results."
                 }),
                 "safety_hate_speech": ([
-                    "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE", "BLOCK_ONLY_HIGH", "OFF"
-                ], {
-                    "default": "BLOCK_NONE",
-                    "tooltip": "Hate speech filter. BLOCK_NONE = most permissive. OFF = disabled. Note: an internal image filter may still block independently."
-                }),
+                                           "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE",
+                                           "BLOCK_ONLY_HIGH", "OFF"
+                                       ], {
+                                           "default": "BLOCK_NONE",
+                                           "tooltip": "Hate speech filter. BLOCK_NONE = most permissive. OFF = disabled. Note: an internal image filter may still block independently."
+                                       }),
                 "safety_harassment": ([
-                    "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE", "BLOCK_ONLY_HIGH", "OFF"
-                ], {
-                    "default": "BLOCK_NONE",
-                    "tooltip": "Harassment filter. BLOCK_NONE = most permissive. OFF = disabled."
-                }),
+                                          "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE",
+                                          "BLOCK_ONLY_HIGH", "OFF"
+                                      ], {
+                                          "default": "BLOCK_NONE",
+                                          "tooltip": "Harassment filter. BLOCK_NONE = most permissive. OFF = disabled."
+                                      }),
                 "safety_sexually_explicit": ([
-                    "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE", "BLOCK_ONLY_HIGH", "OFF"
-                ], {
-                    "default": "BLOCK_NONE",
-                    "tooltip": "Sexually explicit filter — most common cause of blocked generations. BLOCK_NONE = most permissive configurable setting."
-                }),
+                                                 "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE",
+                                                 "BLOCK_ONLY_HIGH", "OFF"
+                                             ], {
+                                                 "default": "BLOCK_NONE",
+                                                 "tooltip": "Sexually explicit filter — most common cause of blocked generations. BLOCK_NONE = most permissive configurable setting."
+                                             }),
                 "safety_dangerous_content": ([
-                    "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE", "BLOCK_ONLY_HIGH", "OFF"
-                ], {
-                    "default": "BLOCK_NONE",
-                    "tooltip": "Dangerous content filter. BLOCK_NONE = most permissive. OFF = disabled."
-                }),
+                                                 "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE",
+                                                 "BLOCK_ONLY_HIGH", "OFF"
+                                             ], {
+                                                 "default": "BLOCK_NONE",
+                                                 "tooltip": "Dangerous content filter. BLOCK_NONE = most permissive. OFF = disabled."
+                                             }),
                 "presence_penalty": ("FLOAT", {
                     "default": 0.0, "min": -2.0, "max": 2.0, "step": 0.1,
                     "tooltip": "Penalizes already-appeared tokens (-2.0 to 2.0). Positive = more diverse. Primarily affects text in TEXT_AND_IMAGE mode."
@@ -394,7 +411,7 @@ class NanoBananaGenerate:
     @classmethod
     def IS_CHANGED(cls, **kwargs):
         return float("NaN")
-        
+
     def _execute_batch(self, client, model, contents, config, batch_count, candidate_count, logger):
         """Execute batch generation with concurrency and rate-limit awareness."""
         all_images = []
@@ -468,49 +485,50 @@ class NanoBananaGenerate:
         return all_images, all_texts, tokens_used_str
 
     def generate(self, prompt, model, aspect_ratio, image_size, response_modality,
-                 system_instruction, temperature, top_p, top_k, candidate_count, 
+                 system_instruction, temperature, top_p, top_k, candidate_count,
                  max_output_tokens, thinking_level, batch_count,
-                 api_key="", stop_sequences="", seed=0,
-                 safety_hate_speech="BLOCK_NONE", safety_harassment="BLOCK_NONE", 
+                 api_key="", base_url="", stop_sequences="", seed=0,
+                 safety_hate_speech="BLOCK_NONE", safety_harassment="BLOCK_NONE",
                  safety_sexually_explicit="BLOCK_NONE", safety_dangerous_content="BLOCK_NONE",
                  presence_penalty=0.0, frequency_penalty=0.0, enable_search_grounding=False, **kwargs):
-        
+
         logger = NanoBananaLogger
-        
+
         # Collect all reference images
         all_refs = []
         if "reference_images" in kwargs and kwargs["reference_images"] is not None:
             B = kwargs["reference_images"].shape[0]
             for i in range(B):
-                all_refs.append(kwargs["reference_images"][i:i+1])
-                
+                all_refs.append(kwargs["reference_images"][i:i + 1])
+
         for i in range(1, 15):
             key = f"reference_image_{i}"
             if key in kwargs and kwargs[key] is not None:
                 img_tensor = kwargs[key]
                 B = img_tensor.shape[0]
                 for j in range(B):
-                    all_refs.append(img_tensor[j:j+1])
-        
+                    all_refs.append(img_tensor[j:j + 1])
+
         # 1. Validate params
         num_refs = len(all_refs)
         warnings = validate_model_params(model, aspect_ratio, image_size, thinking_level, num_refs)
         for w in warnings:
             logger.warn(w)
-            
+
         IMAGE_TOKEN_ESTIMATES = {"512px": 800, "1K": 1120, "2K": 1600, "4K": 2520}
         min_recommended = IMAGE_TOKEN_ESTIMATES.get(image_size, 1120) + 512  # buffer for text/thinking
         if max_output_tokens < min_recommended:
-            print(f"⚠️ [NanoBanana] max_output_tokens ({max_output_tokens}) may be too low for {image_size} images. Recommended minimum: {min_recommended}")
+            print(
+                f"⚠️ [NanoBanana] max_output_tokens ({max_output_tokens}) may be too low for {image_size} images. Recommended minimum: {min_recommended}")
 
         # 2. Log API call
         logger.api_call(model, image_size, aspect_ratio)
         start_time = time.time()
-        
+
         if seed > 0:
             random.seed(seed)
 
-        client = get_client(api_key)
+        client = get_client(api_key, base_url)
 
         parts = [prompt]
         max_refs = MODEL_CONSTRAINTS[model]["max_reference_images"]
@@ -533,15 +551,15 @@ class NanoBananaGenerate:
                 config.tools = tools
 
             all_images, all_texts, tokens_used_str = self._execute_batch(
-                client=client, model=model, contents=parts, config=config, 
+                client=client, model=model, contents=parts, config=config,
                 batch_count=batch_count, candidate_count=candidate_count, logger=logger
             )
 
             duration = time.time() - start_time
-            
+
             logger.api_result(
                 success=len(all_images) > 0,
-                candidates_returned=len(all_images), # rough estimate
+                candidates_returned=len(all_images),  # rough estimate
                 images_extracted=len(all_images),
                 tokens_used=tokens_used_str,
                 duration_s=duration
@@ -563,8 +581,10 @@ class NanoBananaGenerate:
                 logger.error("Invalid API key. Verify at https://aistudio.google.com/apikey")
             raise
 
+
 class NanoBananaChat:
     """Multi-turn conversational editing node"""
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -576,24 +596,25 @@ class NanoBananaChat:
                     "tooltip": "Describe the image you want to generate. Be specific about subject, style, lighting, composition. Supports multiple languages."
                 }),
                 "model": ([
-                    "gemini-3.1-flash-image-preview",
-                    "gemini-3-pro-image-preview",
-                ], {
-                    "default": "gemini-3.1-flash-image-preview",
-                    "tooltip": "Nano Banana Pro = highest quality, best text rendering. Nano Banana 2 (Flash) = faster, cheaper, supports thinking & 512px & extreme aspect ratios."
-                }),
+                              "gemini-3.1-flash-image-preview",
+                              "gemini-3-pro-image-preview",
+                          ], {
+                              "default": "gemini-3.1-flash-image-preview",
+                              "tooltip": "Nano Banana Pro = highest quality, best text rendering. Nano Banana 2 (Flash) = faster, cheaper, supports thinking & 512px & extreme aspect ratios."
+                          }),
                 "aspect_ratio": ([
-                    "1:1", "1:4", "1:8", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5", "5:4", "8:1", "9:16", "16:9", "21:9"
-                ], {
-                    "default": "1:1",
-                    "tooltip": "Output image proportions. Pro supports 10 ratios. Flash supports 14 including extreme (1:8, 8:1). Invalid ratios for the selected model will be flagged."
-                }),
+                                     "1:1", "1:4", "1:8", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5", "5:4", "8:1",
+                                     "9:16", "16:9", "21:9"
+                                 ], {
+                                     "default": "1:1",
+                                     "tooltip": "Output image proportions. Pro supports 10 ratios. Flash supports 14 including extreme (1:8, 8:1). Invalid ratios for the selected model will be flagged."
+                                 }),
                 "image_size": ([
-                    "512px", "1K", "2K", "4K"
-                ], {
-                    "default": "1K",
-                    "tooltip": "Output resolution. 512px (Flash only), 1K (1024px), 2K (2048px), 4K (4096px). Larger = higher quality but more tokens billed."
-                }),
+                                   "512px", "1K", "2K", "4K"
+                               ], {
+                                   "default": "1K",
+                                   "tooltip": "Output resolution. 512px (Flash only), 1K (1024px), 2K (2048px), 4K (4096px). Larger = higher quality but more tokens billed."
+                               }),
                 "system_instruction": ("STRING", {
                     "default": "",
                     "multiline": True,
@@ -617,11 +638,11 @@ class NanoBananaChat:
                     "tooltip": "Max output tokens (text + thinking + image). Image tokens: ~1,120 for 1K, ~1,600 for 2K, ~2,520 for 4K. Too low = image may fail. Recommended minimum: 2048 for 1K, 8192 for 4K."
                 }),
                 "thinking_level": ([
-                    "none", "minimal", "low", "medium", "high"
-                ], {
-                    "default": "minimal",
-                    "tooltip": "Reasoning depth (Flash/NB2 ONLY). Higher = better quality, more tokens. ⚠️ IGNORED for Pro — causes API error if sent."
-                }),
+                                       "none", "minimal", "low", "medium", "high"
+                                   ], {
+                                       "default": "minimal",
+                                       "tooltip": "Reasoning depth (Flash/NB2 ONLY). Higher = better quality, more tokens. ⚠️ IGNORED for Pro — causes API error if sent."
+                                   }),
             },
             "optional": {
                 "api_key": ("STRING", {
@@ -629,32 +650,41 @@ class NanoBananaChat:
                     "placeholder": "Leave blank to use GEMINI_API_KEY env var",
                     "tooltip": "Your Google AI Studio API key. Leave blank to use GEMINI_API_KEY environment variable."
                 }),
+                "base_url": ("STRING", {
+                    "default": "", "forceInput": True,
+                    "placeholder": "Input your base url, if empty use default",
+                    "tooltip": "Input your base url, if empty use default"
+                }),
                 "input_image": ("IMAGE",),
                 "chat_history": ("NANO_BANANA_CHAT_HISTORY",),
                 "safety_hate_speech": ([
-                    "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE", "BLOCK_ONLY_HIGH", "OFF"
-                ], {
-                    "default": "BLOCK_NONE",
-                    "tooltip": "Hate speech filter. BLOCK_NONE = most permissive. OFF = disabled. Note: an internal image filter may still block independently."
-                }),
+                                           "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE",
+                                           "BLOCK_ONLY_HIGH", "OFF"
+                                       ], {
+                                           "default": "BLOCK_NONE",
+                                           "tooltip": "Hate speech filter. BLOCK_NONE = most permissive. OFF = disabled. Note: an internal image filter may still block independently."
+                                       }),
                 "safety_harassment": ([
-                    "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE", "BLOCK_ONLY_HIGH", "OFF"
-                ], {
-                    "default": "BLOCK_NONE",
-                    "tooltip": "Harassment filter. BLOCK_NONE = most permissive. OFF = disabled."
-                }),
+                                          "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE",
+                                          "BLOCK_ONLY_HIGH", "OFF"
+                                      ], {
+                                          "default": "BLOCK_NONE",
+                                          "tooltip": "Harassment filter. BLOCK_NONE = most permissive. OFF = disabled."
+                                      }),
                 "safety_sexually_explicit": ([
-                    "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE", "BLOCK_ONLY_HIGH", "OFF"
-                ], {
-                    "default": "BLOCK_NONE",
-                    "tooltip": "Sexually explicit filter — most common cause of blocked generations. BLOCK_NONE = most permissive configurable setting."
-                }),
+                                                 "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE",
+                                                 "BLOCK_ONLY_HIGH", "OFF"
+                                             ], {
+                                                 "default": "BLOCK_NONE",
+                                                 "tooltip": "Sexually explicit filter — most common cause of blocked generations. BLOCK_NONE = most permissive configurable setting."
+                                             }),
                 "safety_dangerous_content": ([
-                    "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE", "BLOCK_ONLY_HIGH", "OFF"
-                ], {
-                    "default": "BLOCK_NONE",
-                    "tooltip": "Dangerous content filter. BLOCK_NONE = most permissive. OFF = disabled."
-                }),
+                                                 "BLOCK_NONE", "BLOCK_LOW_AND_ABOVE", "BLOCK_MEDIUM_AND_ABOVE",
+                                                 "BLOCK_ONLY_HIGH", "OFF"
+                                             ], {
+                                                 "default": "BLOCK_NONE",
+                                                 "tooltip": "Dangerous content filter. BLOCK_NONE = most permissive. OFF = disabled."
+                                             }),
                 "enable_search_grounding": ("BOOLEAN", {
                     "default": False,
                     "label_on": "Search ON",
@@ -675,19 +705,19 @@ class NanoBananaChat:
 
     def generate(self, instruction, model, aspect_ratio, image_size,
                  system_instruction, temperature, top_p, top_k, max_output_tokens,
-                 thinking_level, api_key="", input_image=None, chat_history=None,
-                 safety_hate_speech="BLOCK_NONE", safety_harassment="BLOCK_NONE", 
+                 thinking_level, api_key="", base_url="", input_image=None, chat_history=None,
+                 safety_hate_speech="BLOCK_NONE", safety_harassment="BLOCK_NONE",
                  safety_sexually_explicit="BLOCK_NONE", safety_dangerous_content="BLOCK_NONE",
                  enable_search_grounding=False):
-                 
+
         logger = NanoBananaLogger
-        
+
         # Validate params
         warnings = validate_model_params(model, aspect_ratio, image_size, thinking_level, 0)
         for w in warnings:
             logger.warn(w)
 
-        client = get_client(api_key)
+        client = get_client(api_key, base_url)
 
         config, tools = build_config(
             model=model, response_modality="TEXT_AND_IMAGE", aspect_ratio=aspect_ratio,
@@ -699,26 +729,26 @@ class NanoBananaChat:
             safety_hate_speech=safety_hate_speech, safety_harassment=safety_harassment,
             safety_sexually_explicit=safety_sexually_explicit, safety_dangerous_content=safety_dangerous_content
         )
-        
+
         if tools:
             config.tools = tools
 
         try:
             chat = client.chats.create(model=model, config=config, history=chat_history)
-            
+
             message_parts = []
             if input_image is not None and not chat_history:
                 message_parts.append(comfy_tensor_to_pil(input_image))
             message_parts.append(instruction)
-            
+
             # Record start time for latency measurement
             start_time = time.time()
             response = chat.send_message(message_parts)
             duration = time.time() - start_time
-            
+
             from .response_parsers import parse_gemini_response
             img_tensor, txt = parse_gemini_response(response)
-            
+
             usage = getattr(response, 'usage_metadata', None)
             tokens_used_str = None
             if usage:
@@ -731,7 +761,7 @@ class NanoBananaChat:
                 tokens_used=tokens_used_str,
                 duration_s=duration
             )
-            
+
             return (img_tensor, txt, chat.get_history())
         except Exception as e:
             logger.error(f"API call failed: {type(e).__name__}: {str(e)}")
